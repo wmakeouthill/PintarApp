@@ -13,6 +13,8 @@ type ToolboxProps = {
 const TOOL_LABELS: Record<ColoringTool, string> = {
   fill: 'Preencher',
   erase: 'Borracha',
+  brush: 'Pincel',
+  eyedropper: 'Conta-gotas',
 };
 
 export const Toolbox: React.FC<ToolboxProps> = ({
@@ -22,69 +24,102 @@ export const Toolbox: React.FC<ToolboxProps> = ({
 }) => {
   return (
     <View style={styles.container}>
-      {(Object.keys(TOOL_LABELS) as ColoringTool[]).map((tool, index, arr) => {
-        const isActive = tool === activeTool;
-        return (
-          <Pressable
-            key={tool}
-            style={[
-              styles.toolButton,
-              isActive && {backgroundColor: colors.accent},
-              index < arr.length - 1 && styles.toolSpacing,
-            ]}
-            accessibilityRole="button"
-            accessibilityState={{selected: isActive}}
-            onPress={() => onSelect(tool)}>
-            <Text
-              style={[
-                styles.toolLabel,
-                isActive && {color: colors.background},
-              ]}>
-              {TOOL_LABELS[tool]}
-            </Text>
-          </Pressable>
-        );
-      })}
-      <Pressable style={[styles.resetButton]} onPress={onReset}>
-        <Text style={styles.resetLabel}>Limpar</Text>
-      </Pressable>
+      <Text style={styles.caption}>Ferramentas</Text>
+      <View style={styles.toolRow}>
+        {(Object.keys(TOOL_LABELS) as ColoringTool[]).map(
+          (tool, index, arr) => {
+            const isActive = tool === activeTool;
+            return (
+              <Pressable
+                key={tool}
+                style={[
+                  styles.toolButton,
+                  isActive && styles.toolButtonActive,
+                  index < arr.length - 1 && styles.toolSpacing,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{selected: isActive}}
+                onPress={() => onSelect(tool)}>
+                <Text
+                  style={[
+                    styles.toolLabel,
+                    isActive && styles.toolLabelActive,
+                  ]}>
+                  {TOOL_LABELS[tool]}
+                </Text>
+              </Pressable>
+            );
+          },
+        )}
+        <Pressable style={[styles.resetButton]} onPress={onReset}>
+          <Text style={styles.resetLabel}>Limpar</Text>
+        </Pressable>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    marginTop: spacing.lg,
-  },
-  toolButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
+    padding: spacing.sm,
     borderRadius: spacing.md,
     backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  caption: {
+    color: colors.textSecondary,
+    fontSize: typography.caption,
+    marginBottom: spacing.xs,
+    fontWeight: '600',
+  },
+  toolRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  toolButton: {
+    flex: 1,
+    minWidth: '45%',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: spacing.sm,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  toolButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   toolSpacing: {
-    marginRight: spacing.md,
+    marginRight: 0,
   },
   toolLabel: {
     color: colors.textPrimary,
-    fontSize: typography.body,
+    fontSize: typography.caption,
+    fontWeight: '500',
+  },
+  toolLabelActive: {
+    color: colors.background,
   },
   resetButton: {
-    paddingHorizontal: spacing.lg,
-    borderRadius: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'center',
-    marginLeft: spacing.md,
+    marginLeft: 'auto',
   },
   resetLabel: {
     color: colors.textSecondary,
     fontSize: typography.caption,
     textTransform: 'uppercase',
+    fontWeight: '600',
   },
 });
 

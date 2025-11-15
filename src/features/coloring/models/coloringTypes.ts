@@ -1,4 +1,4 @@
-export type ColoringTool = 'fill' | 'erase';
+export type ColoringTool = 'fill' | 'erase' | 'brush' | 'eyedropper';
 
 export type ColoringPath = {
   id: string;

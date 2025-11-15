@@ -11,10 +11,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/slider": "^5.1.1",
+    "fast-xml-parser": "^5.3.2",
     "react": "18.3.1",
     "react-native": "0.76.6",
+    "react-native-document-picker": "^9.3.1",
+    "react-native-fs": "^2.20.0",
+    "react-native-gesture-handler": "^2.29.1",
     "react-native-safe-area-context": "^5.6.2",
-    "react-native-svg": "^15.15.0"
+    "react-native-svg": "^15.15.0",
+    "react-native-view-shot": "^4.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

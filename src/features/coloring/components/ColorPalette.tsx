@@ -7,15 +7,32 @@ type ColorPaletteProps = {
   swatches: string[];
   selected: string;
   onSelect: (hex: string) => void;
+  customSwatches?: string[];
+  onOpenAdvanced?: () => void;
 };
 
 export const ColorPalette: React.FC<ColorPaletteProps> = props => {
-  const {swatches, selected, onSelect} = props;
+  const {swatches, selected, onSelect, customSwatches = [], onOpenAdvanced} =
+    props;
   const total = swatches.length;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Cores sugeridas</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.label} numberOfLines={1} ellipsizeMode="tail">
+          Cores sugeridas
+        </Text>
+        {onOpenAdvanced ? (
+          <Pressable
+            onPress={onOpenAdvanced}
+            style={styles.actionButton}
+            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            <Text style={styles.actionLink} numberOfLines={1}>
+              Paleta avançada
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -39,22 +56,63 @@ export const ColorPalette: React.FC<ColorPaletteProps> = props => {
           );
         }}
       />
+      {customSwatches.length ? (
+        <>
+          <Text style={[styles.label, styles.customLabel]}>
+            Minhas cores
+          </Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={customSwatches}
+            keyExtractor={hex => `custom-${hex}`}
+            contentContainerStyle={styles.listContent}
+            renderItem={({item: hex, index}) => {
+              const isActive = hex === selected;
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Selecionar cor personalizada ${hex}`}
+                  onPress={() => onSelect(hex)}
+                  style={[
+                    styles.swatch,
+                    {backgroundColor: hex},
+                    index < customSwatches.length - 1 && styles.swatchSpacing,
+                  ]}>
+                  {isActive ? <View style={styles.activeOutline} /> : null}
+                </Pressable>
+              );
+            }}
+          />
+        </>
+      ) : null}
     </View>
   );
 };
 
-const SWATCH_SIZE = 44;
+const SWATCH_SIZE = 32;
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   label: {
     color: themeColors.textSecondary,
     fontSize: typography.caption,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: spacing.sm,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  customLabel: {
+    marginTop: spacing.md,
   },
   listContent: {},
   swatch: {
@@ -75,6 +133,14 @@ const styles = StyleSheet.create({
     borderRadius: (SWATCH_SIZE - 16) / 2,
     borderWidth: 2,
     borderColor: palette.white,
+  },
+  actionButton: {
+    flexShrink: 0,
+  },
+  actionLink: {
+    color: themeColors.accent,
+    fontWeight: '600',
+    fontSize: typography.caption,
   },
 });
 
