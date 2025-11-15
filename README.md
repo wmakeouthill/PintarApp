@@ -31,6 +31,36 @@ npm run ios
 
 Utilize `npm run lint`, `npm run test` e `npm run typecheck` para garantir qualidade contínua.
 
+## Configurar emulador Android como tablet
+
+Para rodar o aplicativo em formato de tablet (ao invés de celular):
+
+1. **Abra o Android Studio**
+2. **Acesse o AVD Manager**:
+   - Menu: `Tools` > `Device Manager` (ou `Tools` > `AVD Manager` em versões antigas)
+   - Ou clique no ícone de dispositivo na barra de ferramentas
+3. **Crie um novo dispositivo virtual**:
+   - Clique em `Create Device` (ou `+ Create Virtual Device`)
+   - Na categoria **Tablets**, escolha um modelo (ex.: Pixel Tablet, Nexus 10, Pixel C)
+   - Clique em `Next`
+4. **Escolha uma imagem do sistema**:
+   - Selecione uma versão do Android (recomendado: API 33 ou superior)
+   - Clique em `Download` se necessário
+   - Clique em `Next`
+5. **Configure o AVD**:
+   - Dê um nome ao dispositivo (ex.: "Tablet_10inch")
+   - Verifique as configurações (memória, resolução)
+   - Clique em `Finish`
+6. **Inicie o emulador**:
+   - Clique no botão ▶️ ao lado do dispositivo criado
+   - Aguarde o emulador iniciar completamente
+7. **Rode o aplicativo**:
+   ```bash
+   npm run android
+   ```
+
+O aplicativo já está configurado no `AndroidManifest.xml` para suportar tablets com telas grandes (largeScreens e xlargeScreens).
+
 ## Estrutura
 
 ```

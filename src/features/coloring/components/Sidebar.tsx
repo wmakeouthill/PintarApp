@@ -1,9 +1,10 @@
-import React, {useState} from 'react';
-import {Animated, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useMemo, useState} from 'react';
+import {Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 
 import {colors, spacing, typography} from '@/core/theme';
 import {BrushWidthSlider} from './BrushWidthSlider';
 import {ColorPalette} from './ColorPalette';
+import {ColorWheel} from './ColorWheel';
 import {HistoryControls} from './HistoryControls';
 import {RgbColorPicker} from './RgbColorPicker';
 import {SaveButton} from './SaveButton';
@@ -26,11 +27,20 @@ type SidebarProps = {
   artworkName: string;
   palette: string[];
   customSwatches: string[];
+  onAddFavorite?: (hex: string) => void;
   onOpenImport?: () => void;
 };
 
-const SIDEBAR_WIDTH = 240;
-const TOGGLE_BUTTON_WIDTH = 40;
+// Constants for sidebar sizing
+const MIN_SIDEBAR_WIDTH = 380;
+const MAX_SIDEBAR_WIDTH = 520;
+const SIDEBAR_WIDTH_PERCENT = 0.32; // 32% of screen width for tablets
+const TAB_WIDTH = 72;
+const TOGGLE_BUTTON_WIDTH = 52;
+const MIN_COLOR_WHEEL_SIZE = 240;
+const MAX_COLOR_WHEEL_SIZE = 360;
+
+type TabType = 'colors' | 'tools' | 'settings';
 
 export const Sidebar: React.FC<SidebarProps> = ({
   selectedColor,
@@ -48,11 +58,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   artworkName,
   palette,
   customSwatches,
+  onAddFavorite,
   onOpenImport,
 }) => {
+  const {width: screenWidth} = useWindowDimensions();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'colors' | 'tools' | 'settings'>('colors');
+  const [activeTab, setActiveTab] = useState<TabType>('colors');
   const slideAnim = React.useRef(new Animated.Value(0)).current;
+
+  // Calculate sidebar width dynamically based on screen size
+  const sidebarWidth = useMemo(() => {
+    const calculatedWidth = screenWidth * SIDEBAR_WIDTH_PERCENT;
+    return Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, calculatedWidth));
+  }, [screenWidth]);
+
+  // Calculate color wheel size based on sidebar width
+  const colorWheelSize = useMemo(() => {
+    const availableWidth = sidebarWidth - TAB_WIDTH - spacing.xl * 2; // Account for tabs and padding
+    return Math.max(
+      MIN_COLOR_WHEEL_SIZE,
+      Math.min(MAX_COLOR_WHEEL_SIZE, availableWidth),
+    );
+  }, [sidebarWidth]);
 
   React.useEffect(() => {
     Animated.timing(slideAnim, {
@@ -64,14 +91,95 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const translateX = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [SIDEBAR_WIDTH, 0],
+    outputRange: [sidebarWidth, 0],
   });
+
+  const handleTabPress = (tab: TabType) => {
+    setActiveTab(tab);
+  };
+
+  const toggleSidebar = () => {
+    setIsOpen(prev => !prev);
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'colors':
+        return (
+          <View style={styles.tabContent}>
+            <View style={styles.colorWheelContainer}>
+              <ColorWheel
+                size={colorWheelSize}
+                value={selectedColor}
+                onChange={onColorSelect}
+              />
+            </View>
+            {onAddFavorite && (
+              <Pressable
+                style={styles.saveFavoriteButton}
+                onPress={() => onAddFavorite(selectedColor)}>
+                <Text style={styles.saveFavoriteIcon}>⭐</Text>
+                <Text style={styles.saveFavoriteText}>Salvar como favorita</Text>
+              </Pressable>
+            )}
+            <View style={styles.divider} />
+            <ColorPalette
+              swatches={palette}
+              customSwatches={customSwatches}
+              selected={selectedColor}
+              onSelect={onColorSelect}
+            />
+          </View>
+        );
+
+      case 'tools':
+        return (
+          <View style={styles.tabContent}>
+            <Toolbox activeTool={activeTool} onSelect={onToolSelect} onReset={onReset} />
+            {activeTool === 'brush' && (
+              <>
+                <View style={styles.divider} />
+                <BrushWidthSlider
+                  value={brushWidth}
+                  onValueChange={onBrushWidthChange}
+                  visible={true}
+                />
+              </>
+            )}
+            <View style={styles.divider} />
+            <HistoryControls canUndo={canUndo} canRedo={canRedo} onUndo={onUndo} onRedo={onRedo} />
+          </View>
+        );
+
+      case 'settings':
+        return (
+          <View style={styles.tabContent}>
+            <SaveButton canvasRef={canvasRef} artworkName={artworkName} />
+            {onOpenImport && (
+              <Pressable style={styles.importButton} onPress={onOpenImport}>
+                <Text style={styles.importButtonIcon}>📄</Text>
+                <Text style={styles.importButtonText}>Importar SVG</Text>
+              </Pressable>
+            )}
+          </View>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const tabConfig: Array<{id: TabType; icon: string}> = [
+    {id: 'colors', icon: '🎨'},
+    {id: 'tools', icon: '🛠️'},
+    {id: 'settings', icon: '⚙️'},
+  ];
 
   return (
     <>
       <Pressable
         style={[styles.toggleButton, isOpen && styles.toggleButtonActive]}
-        onPress={() => setIsOpen(!isOpen)}>
+        onPress={toggleSidebar}>
         <Text style={styles.toggleIcon}>{isOpen ? '◀' : '▶'}</Text>
       </Pressable>
 
@@ -79,78 +187,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         style={[
           styles.overlay,
           {
+            width: sidebarWidth + TOGGLE_BUTTON_WIDTH,
             transform: [{translateX}],
             opacity: slideAnim,
           },
         ]}
         pointerEvents={isOpen ? 'auto' : 'none'}>
-        <View style={styles.container}>
+        <View style={[styles.container, {width: sidebarWidth}]}>
           <View style={styles.tabs}>
-            <Pressable
-              style={[styles.tab, activeTab === 'colors' && styles.tabActive]}
-              onPress={() => setActiveTab('colors')}>
-              <Text style={[styles.tabText, activeTab === 'colors' && styles.tabTextActive]}>
-                🎨
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, activeTab === 'tools' && styles.tabActive]}
-              onPress={() => setActiveTab('tools')}>
-              <Text style={[styles.tabText, activeTab === 'tools' && styles.tabTextActive]}>
-                🛠️
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, activeTab === 'settings' && styles.tabActive]}
-              onPress={() => setActiveTab('settings')}>
-              <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>
-                ⚙️
-              </Text>
-            </Pressable>
+            {tabConfig.map(tab => (
+              <Pressable
+                key={tab.id}
+                style={[styles.tab, activeTab === tab.id && styles.tabActive]}
+                onPress={() => handleTabPress(tab.id)}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab.id && styles.tabTextActive,
+                  ]}>
+                  {tab.icon}
+                </Text>
+              </Pressable>
+            ))}
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {activeTab === 'colors' && (
-              <View style={styles.tabContent}>
-                <RgbColorPicker value={selectedColor} onChange={onColorSelect} />
-                <View style={styles.divider} />
-                <ColorPalette
-                  swatches={palette}
-                  customSwatches={customSwatches}
-                  selected={selectedColor}
-                  onSelect={onColorSelect}
-                />
-              </View>
-            )}
-
-            {activeTab === 'tools' && (
-              <View style={styles.tabContent}>
-                <Toolbox activeTool={activeTool} onSelect={onToolSelect} onReset={onReset} />
-                {activeTool === 'brush' && (
-                  <>
-                    <View style={styles.divider} />
-                    <BrushWidthSlider
-                      value={brushWidth}
-                      onValueChange={onBrushWidthChange}
-                      visible={true}
-                    />
-                  </>
-                )}
-                <View style={styles.divider} />
-                <HistoryControls canUndo={canUndo} canRedo={canRedo} onUndo={onUndo} onRedo={onRedo} />
-              </View>
-            )}
-
-            {activeTab === 'settings' && (
-              <View style={styles.tabContent}>
-                <SaveButton canvasRef={canvasRef} artworkName={artworkName} />
-                {onOpenImport && (
-                  <Pressable style={styles.importButton} onPress={onOpenImport}>
-                    <Text style={styles.importButtonText}>📁 Importar</Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
+            {renderTabContent()}
           </ScrollView>
         </View>
       </Animated.View>
@@ -164,7 +226,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: '50%',
     width: TOGGLE_BUTTON_WIDTH,
-    height: 80,
+    height: 96,
     backgroundColor: colors.surface,
     borderTopLeftRadius: spacing.md,
     borderBottomLeftRadius: spacing.md,
@@ -186,7 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
   },
   toggleIcon: {
-    fontSize: 16,
+    fontSize: 22,
     color: colors.textPrimary,
     fontWeight: 'bold',
   },
@@ -195,11 +257,9 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: SIDEBAR_WIDTH + TOGGLE_BUTTON_WIDTH,
     zIndex: 999,
   },
   container: {
-    width: SIDEBAR_WIDTH,
     height: '100%',
     backgroundColor: colors.surface,
     borderLeftWidth: 1,
@@ -212,27 +272,29 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   tabs: {
-    width: 40,
+    width: TAB_WIDTH,
     backgroundColor: colors.surfaceAlt,
     borderRightWidth: 1,
     borderRightColor: colors.border,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.md,
   },
   tab: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
-    borderRadius: spacing.sm,
+    marginBottom: spacing.md,
+    marginHorizontal: spacing.xs,
+    borderRadius: spacing.md,
+    minHeight: 64,
   },
   tabActive: {
     backgroundColor: colors.surface,
-    borderLeftWidth: 2,
+    borderLeftWidth: 3,
     borderLeftColor: colors.accent,
   },
   tabText: {
-    fontSize: 20,
+    fontSize: 32,
     opacity: 0.6,
   },
   tabTextActive: {
@@ -242,25 +304,60 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabContent: {
-    padding: spacing.sm,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: spacing.sm,
+    marginVertical: spacing.lg,
+  },
+  saveFavoriteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceAlt,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: spacing.md,
+    marginTop: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.border,
+    minHeight: 52,
+  },
+  saveFavoriteIcon: {
+    fontSize: 20,
+    marginRight: spacing.sm,
+  },
+  saveFavoriteText: {
+    color: colors.textPrimary,
+    fontSize: typography.body,
+    fontWeight: '600',
   },
   importButton: {
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.sm,
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: spacing.md,
+    marginTop: spacing.lg,
+    minHeight: 56,
+  },
+  importButtonIcon: {
+    fontSize: 24,
+    marginRight: spacing.sm,
   },
   importButtonText: {
     color: colors.background,
-    fontSize: typography.caption,
+    fontSize: typography.body,
     fontWeight: '600',
+  },
+  colorWheelContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: spacing.md,
   },
 });
 

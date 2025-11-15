@@ -45,27 +45,34 @@ export const HistoryControls: React.FC<HistoryControlsProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   button: {
     flex: 1,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: spacing.sm,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
     borderColor: colors.border,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
   },
   buttonSpacing: {
-    marginLeft: spacing.xs,
+    marginLeft: spacing.md,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
     color: colors.textPrimary,
-    fontSize: typography.caption,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   buttonTextDisabled: {

@@ -56,19 +56,23 @@ export const SaveButton: React.FC<SaveButtonProps> = ({canvasRef, artworkName}) 
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.sm,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderRadius: spacing.md,
     backgroundColor: colors.accent,
     alignItems: 'center',
-    marginTop: spacing.sm,
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    minHeight: 56,
+    borderWidth: 2,
+    borderColor: colors.accent,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: colors.background,
-    fontSize: typography.caption,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 });

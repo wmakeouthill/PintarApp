@@ -123,6 +123,7 @@ export const ColoringScreen = (): React.JSX.Element => {
               artworkName={page.name}
               palette={palette}
               customSwatches={persistedColors}
+              onAddFavorite={handleAddCustomColor}
               onOpenImport={() => setImportVisible(true)}
             />
           </>

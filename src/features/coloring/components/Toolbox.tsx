@@ -1,5 +1,5 @@
 import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 
 import {colors, spacing, typography} from '@/core/theme';
 import {ColoringTool} from '../models/coloringTypes';
@@ -27,15 +27,17 @@ export const Toolbox: React.FC<ToolboxProps> = ({
       <Text style={styles.caption}>Ferramentas</Text>
       <View style={styles.toolRow}>
         {(Object.keys(TOOL_LABELS) as ColoringTool[]).map(
-          (tool, index, arr) => {
+          (tool, index) => {
             const isActive = tool === activeTool;
+            // Every 2nd button (index 1, 3) should not have marginRight
+            const isLastInRow = index % 2 === 1;
             return (
               <Pressable
                 key={tool}
                 style={[
                   styles.toolButton,
+                  isLastInRow && styles.toolButtonLastInRow,
                   isActive && styles.toolButtonActive,
-                  index < arr.length - 1 && styles.toolSpacing,
                 ]}
                 accessibilityRole="button"
                 accessibilityState={{selected: isActive}}
@@ -44,52 +46,59 @@ export const Toolbox: React.FC<ToolboxProps> = ({
                   style={[
                     styles.toolLabel,
                     isActive && styles.toolLabelActive,
-                  ]}>
+                  ]}
+                  numberOfLines={1}>
                   {TOOL_LABELS[tool]}
                 </Text>
               </Pressable>
             );
           },
         )}
-        <Pressable style={[styles.resetButton]} onPress={onReset}>
-          <Text style={styles.resetLabel}>Limpar</Text>
-        </Pressable>
       </View>
+      <Pressable style={styles.resetButton} onPress={onReset}>
+        <Text style={styles.resetLabel}>Limpar Tudo</Text>
+      </Pressable>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.sm,
+    padding: spacing.lg,
     borderRadius: spacing.md,
     backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: spacing.md,
   },
   caption: {
     color: colors.textSecondary,
-    fontSize: typography.caption,
-    marginBottom: spacing.xs,
+    fontSize: typography.subtitle,
+    marginBottom: spacing.lg,
     fontWeight: '600',
   },
   toolRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     flexWrap: 'wrap',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   toolButton: {
-    flex: 1,
-    minWidth: '45%',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: spacing.sm,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
+    width: '48%',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xs,
+    borderRadius: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
     borderColor: colors.border,
     alignItems: 'center',
-    marginRight: spacing.xs,
-    marginBottom: spacing.xs,
+    justifyContent: 'center',
+    minHeight: 56,
+    marginBottom: spacing.md,
+  },
+  toolButtonLastInRow: {
+    marginRight: 0,
   },
   toolButtonActive: {
     backgroundColor: colors.accent,
@@ -100,26 +109,33 @@ const styles = StyleSheet.create({
   },
   toolLabel: {
     color: colors.textPrimary,
-    fontSize: typography.caption,
-    fontWeight: '500',
+    fontSize: typography.body,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: typography.body * 1.2,
   },
   toolLabelActive: {
     color: colors.background,
+    fontWeight: '600',
   },
   resetButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
+    width: '100%',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.md,
+    borderWidth: 2,
     borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 'auto',
+    minHeight: 56,
   },
   resetLabel: {
     color: colors.textSecondary,
-    fontSize: typography.caption,
+    fontSize: typography.body,
     textTransform: 'uppercase',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
 

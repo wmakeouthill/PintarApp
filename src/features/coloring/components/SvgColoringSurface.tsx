@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {PanResponder, StyleSheet, View} from 'react-native';
 import Svg, {ClipPath, Defs, Path} from 'react-native-svg';
 
@@ -72,7 +72,7 @@ export const SvgColoringSurface: React.FC<SvgColoringSurfaceProps> = ({
     return {x: vx, y: vy, width: vw, height: vh};
   });
 
-  const constrainTransform = (
+  const constrainTransform = useCallback((
     scale: number,
     tx: number,
     ty: number,
@@ -86,8 +86,14 @@ export const SvgColoringSurface: React.FC<SvgColoringSurfaceProps> = ({
     const scaledWidth = viewBox.width * constrainedScale;
     const scaledHeight = viewBox.height * constrainedScale;
 
-    const maxTx = Math.max(0, (scaledWidth - containerW) / 2);
-    const maxTy = Math.max(0, (scaledHeight - containerH) / 2);
+    // Permitir movimento quando o SVG é menor que o container (espaço em branco)
+    const maxTx = scaledWidth > containerW 
+      ? (scaledWidth - containerW) / 2 
+      : Math.max(0, (containerW - scaledWidth) / 2) + 100; // Permitir movimento de até 100px além do limite
+    
+    const maxTy = scaledHeight > containerH 
+      ? (scaledHeight - containerH) / 2 
+      : Math.max(0, (containerH - scaledHeight) / 2) + 100; // Permitir movimento de até 100px além do limite
 
     const constrainedTx = Math.max(-maxTx, Math.min(maxTx, tx));
     const constrainedTy = Math.max(-maxTy, Math.min(maxTy, ty));
@@ -97,76 +103,141 @@ export const SvgColoringSurface: React.FC<SvgColoringSurfaceProps> = ({
       translateX: constrainedTx,
       translateY: constrainedTy,
     };
-  };
+  }, [viewBox.width, viewBox.height]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () =>
-        activeTool !== 'brush' && activeTool !== 'fill' && activeTool !== 'erase',
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        if (activeTool === 'brush' || activeTool === 'fill' || activeTool === 'erase') {
+  const isZoomModeRef = useRef(false);
+  const panStartRef = useRef<{x: number; y: number} | null>(null);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: (evt) => {
+          // Sempre permitir zoom com dois dedos
+          if (evt.nativeEvent.touches.length === 2) {
+            isZoomModeRef.current = true;
+            return true;
+          }
+          // Para pan, verificar se não é uma ação de pintura
+          // Permitir pan quando não estiver pintando diretamente
+          if (activeTool === 'brush') {
+            // Para brush, só permitir pan/zoom se for dois dedos ou se não houver path selecionado
+            return false;
+          }
+          // Para outras ferramentas, permitir pan se houver movimento significativo
+          return false; // Deixa o onMoveShouldSetPanResponder decidir
+        },
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+          // Sempre permitir zoom com dois dedos
+          if (evt.nativeEvent.touches.length === 2) {
+            isZoomModeRef.current = true;
+            return true;
+          }
+          // Para pan, só ativar se houver movimento significativo e não estiver pintando
+          if (activeTool === 'brush') {
+            // Não interferir com brush quando estiver pintando
+            return false;
+          }
+          // Permitir pan quando houver movimento significativo
+          const hasMovement = Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
+          if (hasMovement) {
+            isZoomModeRef.current = false;
+            return true;
+          }
           return false;
-        }
-        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
-      },
-      onPanResponderGrant: evt => {
-        const current = transformRef.current;
-        lastPanRef.current = {x: current.translateX, y: current.translateY};
-        lastScaleRef.current = current.scale;
-        if (evt.nativeEvent.touches.length === 2) {
-          const touch1 = evt.nativeEvent.touches[0];
-          const touch2 = evt.nativeEvent.touches[1];
-          initialDistanceRef.current = Math.sqrt(
-            Math.pow(touch2.pageX - touch1.pageX, 2) +
-            Math.pow(touch2.pageY - touch1.pageY, 2),
+        },
+        onPanResponderTerminationRequest: () => {
+          // Não permitir que outros componentes peguem o controle durante zoom/pan
+          return !isZoomModeRef.current;
+        },
+        onPanResponderGrant: evt => {
+          const current = transformRef.current;
+          lastPanRef.current = {x: current.translateX, y: current.translateY};
+          lastScaleRef.current = current.scale;
+          
+          if (evt.nativeEvent.touches.length === 2) {
+            isZoomModeRef.current = true;
+            const touch1 = evt.nativeEvent.touches[0];
+            const touch2 = evt.nativeEvent.touches[1];
+            initialDistanceRef.current = Math.sqrt(
+              Math.pow(touch2.pageX - touch1.pageX, 2) +
+              Math.pow(touch2.pageY - touch1.pageY, 2),
+            );
+            // Calcular o ponto médio para zoom centrado
+            panStartRef.current = {
+              x: (touch1.pageX + touch2.pageX) / 2,
+              y: (touch1.pageY + touch2.pageY) / 2,
+            };
+          } else {
+            isZoomModeRef.current = false;
+            initialDistanceRef.current = null;
+            const {locationX, locationY} = evt.nativeEvent;
+            panStartRef.current = {x: locationX, y: locationY};
+          }
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          if (evt.nativeEvent.touches.length === 2 && initialDistanceRef.current !== null) {
+            // Zoom com pinch
+            const touch1 = evt.nativeEvent.touches[0];
+            const touch2 = evt.nativeEvent.touches[1];
+            const currentDistance = Math.sqrt(
+              Math.pow(touch2.pageX - touch1.pageX, 2) +
+              Math.pow(touch2.pageY - touch1.pageY, 2),
+            );
+            const scaleFactor = currentDistance / initialDistanceRef.current;
+            const newScale = lastScaleRef.current * scaleFactor;
+            
+            // Calcular novo ponto médio
+            const currentMidPoint = {
+              x: (touch1.pageX + touch2.pageX) / 2,
+              y: (touch1.pageY + touch2.pageY) / 2,
+            };
+            
+            // Ajustar pan para manter o ponto médio fixo durante o zoom
+            const scaleChange = newScale / lastScaleRef.current;
+            const dx = (currentMidPoint.x - panStartRef.current!.x) * (1 - 1 / scaleChange);
+            const dy = (currentMidPoint.y - panStartRef.current!.y) * (1 - 1 / scaleChange);
+            
+            const newTx = lastPanRef.current.x - dx;
+            const newTy = lastPanRef.current.y - dy;
+            
+            const constrained = constrainTransform(
+              newScale,
+              newTx,
+              newTy,
+              containerSize.width,
+              containerSize.height,
+            );
+            setTransform(constrained);
+          } else if (evt.nativeEvent.touches.length === 1 && initialDistanceRef.current === null && !isZoomModeRef.current) {
+            // Pan com um dedo
+            const newTx = lastPanRef.current.x + gestureState.dx;
+            const newTy = lastPanRef.current.y + gestureState.dy;
+            const constrained = constrainTransform(
+              lastScaleRef.current,
+              newTx,
+              newTy,
+              containerSize.width,
+              containerSize.height,
+            );
+            setTransform(constrained);
+          }
+        },
+        onPanResponderRelease: () => {
+          const constrained = constrainTransform(
+            transformRef.current.scale,
+            transformRef.current.translateX,
+            transformRef.current.translateY,
+            containerSize.width,
+            containerSize.height,
           );
-        } else {
+          setTransform(constrained);
           initialDistanceRef.current = null;
-        }
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (evt.nativeEvent.touches.length === 2 && initialDistanceRef.current !== null) {
-          const touch1 = evt.nativeEvent.touches[0];
-          const touch2 = evt.nativeEvent.touches[1];
-          const currentDistance = Math.sqrt(
-            Math.pow(touch2.pageX - touch1.pageX, 2) +
-            Math.pow(touch2.pageY - touch1.pageY, 2),
-          );
-          const newScale = (currentDistance / initialDistanceRef.current) * lastScaleRef.current;
-          const constrained = constrainTransform(
-            newScale,
-            lastPanRef.current.x,
-            lastPanRef.current.y,
-            containerSize.width,
-            containerSize.height,
-          );
-          setTransform(constrained);
-        } else if (evt.nativeEvent.touches.length === 1 && initialDistanceRef.current === null) {
-          const newTx = lastPanRef.current.x + gestureState.dx;
-          const newTy = lastPanRef.current.y + gestureState.dy;
-          const constrained = constrainTransform(
-            lastScaleRef.current,
-            newTx,
-            newTy,
-            containerSize.width,
-            containerSize.height,
-          );
-          setTransform(constrained);
-        }
-      },
-      onPanResponderRelease: () => {
-        const constrained = constrainTransform(
-          transformRef.current.scale,
-          transformRef.current.translateX,
-          transformRef.current.translateY,
-          containerSize.width,
-          containerSize.height,
-        );
-        setTransform(constrained);
-        initialDistanceRef.current = null;
-      },
-    }),
-  ).current;
+          isZoomModeRef.current = false;
+          panStartRef.current = null;
+        },
+      }),
+    [activeTool, containerSize.width, containerSize.height, constrainTransform],
+  );
 
   return (
     <View

@@ -39,20 +39,22 @@ export const BrushWidthSlider: React.FC<BrushWidthSliderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.sm,
+    padding: spacing.lg,
     backgroundColor: colors.surfaceAlt,
-    borderRadius: spacing.sm,
-    marginTop: spacing.sm,
+    borderRadius: spacing.md,
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   label: {
     color: colors.textPrimary,
-    fontSize: typography.caption,
-    marginBottom: spacing.xs,
+    fontSize: typography.body,
+    marginBottom: spacing.md,
     fontWeight: '600',
   },
   slider: {
     width: '100%',
-    height: 30,
+    height: 40,
   },
 });
 

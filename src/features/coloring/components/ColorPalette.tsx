@@ -90,26 +90,27 @@ export const ColorPalette: React.FC<ColorPaletteProps> = props => {
   );
 };
 
-const SWATCH_SIZE = 32;
+const SWATCH_SIZE = 44;
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   label: {
     color: themeColors.textSecondary,
-    fontSize: typography.caption,
+    fontSize: typography.body,
     textTransform: 'uppercase',
     letterSpacing: 1,
     flex: 1,
-    marginRight: spacing.sm,
+    marginRight: spacing.md,
+    fontWeight: '600',
   },
   customLabel: {
     marginTop: spacing.md,
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
     borderColor: themeColors.surfaceAlt,
   },
   swatchSpacing: {
-    marginRight: spacing.md,
+    marginRight: spacing.lg,
   },
   activeOutline: {
     width: SWATCH_SIZE - 16,
