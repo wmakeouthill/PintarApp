@@ -14,7 +14,7 @@ import {usePersistedPages} from '../hooks/usePersistedPages';
 import {ColoringPage} from '../models/coloringTypes';
 
 export const ColoringScreen = (): React.JSX.Element => {
-  const {pages: persistedPages, addPage: persistPage} = usePersistedPages();
+  const {pages: persistedPages, addPage: persistPage, removePage: removePersistedPage} = usePersistedPages();
   const {colors: persistedColors, addColor: persistColor} = usePersistedColors();
   const canvasRef = useRef<View>(null);
 
@@ -71,6 +71,29 @@ export const ColoringScreen = (): React.JSX.Element => {
     await persistPage(newPage);
   };
 
+  const handleDeletePage = async (pageId: string) => {
+    // Remove da lista local
+    setPages(prev => prev.filter(p => p.id !== pageId));
+    
+    // Se estava selecionado, seleciona outro
+    if (selectedId === pageId) {
+      const remainingPages = pages.filter(p => p.id !== pageId);
+      setSelectedId(remainingPages[0]?.id ?? null);
+    }
+    
+    // Remove do storage persistido
+    await removePersistedPage(pageId);
+  };
+
+  const handleSelectPage = (pageId: string) => {
+    setSelectedId(pageId);
+  };
+
+  // Filtra apenas as páginas importadas (que começam com 'custom-')
+  const importedPages = useMemo(() => {
+    return pages.filter(p => p.id.startsWith('custom-'));
+  }, [pages]);
+
   const hasActivePage = Boolean(page);
 
   return (
@@ -125,6 +148,9 @@ export const ColoringScreen = (): React.JSX.Element => {
               customSwatches={persistedColors}
               onAddFavorite={handleAddCustomColor}
               onOpenImport={() => setImportVisible(true)}
+              importedPages={importedPages}
+              onSelectPage={handleSelectPage}
+              onDeletePage={handleDeletePage}
             />
           </>
         ) : (

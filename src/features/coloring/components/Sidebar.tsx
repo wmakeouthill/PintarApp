@@ -5,11 +5,12 @@ import {colors, spacing, typography} from '@/core/theme';
 import {BrushWidthSlider} from './BrushWidthSlider';
 import {ColorPalette} from './ColorPalette';
 import {ColorWheel} from './ColorWheel';
+import {GalleryTab} from './GalleryTab';
 import {HistoryControls} from './HistoryControls';
 import {RgbColorPicker} from './RgbColorPicker';
 import {SaveButton} from './SaveButton';
 import {Toolbox} from './Toolbox';
-import {ColoringTool} from '../models/coloringTypes';
+import {ColoringPage, ColoringTool} from '../models/coloringTypes';
 
 type SidebarProps = {
   selectedColor: string;
@@ -29,6 +30,9 @@ type SidebarProps = {
   customSwatches: string[];
   onAddFavorite?: (hex: string) => void;
   onOpenImport?: () => void;
+  importedPages?: ColoringPage[];
+  onSelectPage?: (id: string) => void;
+  onDeletePage?: (id: string) => void;
 };
 
 // Constants for sidebar sizing
@@ -40,7 +44,7 @@ const TOGGLE_BUTTON_WIDTH = 52;
 const MIN_COLOR_WHEEL_SIZE = 240;
 const MAX_COLOR_WHEEL_SIZE = 360;
 
-type TabType = 'colors' | 'tools' | 'settings';
+type TabType = 'colors' | 'tools' | 'settings' | 'gallery';
 
 export const Sidebar: React.FC<SidebarProps> = ({
   selectedColor,
@@ -60,6 +64,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   customSwatches,
   onAddFavorite,
   onOpenImport,
+  importedPages = [],
+  onSelectPage,
+  onDeletePage,
 }) => {
   const {width: screenWidth} = useWindowDimensions();
   const [isOpen, setIsOpen] = useState(false);
@@ -164,6 +171,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </View>
         );
 
+      case 'gallery':
+        return (
+          <View style={[styles.tabContent, styles.galleryTabContent]}>
+            <GalleryTab
+              importedPages={importedPages}
+              selectedId={null}
+              onSelect={onSelectPage || (() => {})}
+              onDelete={onDeletePage || (() => {})}
+              onRequestImport={onOpenImport || (() => {})}
+            />
+          </View>
+        );
+
       default:
         return null;
     }
@@ -172,6 +192,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const tabConfig: Array<{id: TabType; icon: string}> = [
     {id: 'colors', icon: '🎨'},
     {id: 'tools', icon: '🛠️'},
+    {id: 'gallery', icon: '📚'},
     {id: 'settings', icon: '⚙️'},
   ];
 
@@ -358,6 +379,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: spacing.md,
+  },
+  galleryTabContent: {
+    padding: 0,
   },
 });
 

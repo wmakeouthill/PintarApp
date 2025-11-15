@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -30,6 +31,85 @@ export const ImportSvgModal: React.FC<ImportSvgModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Função auxiliar para ler arquivo com tratamento de codificação
+  const readFileWithEncoding = async (fileUri: string): Promise<string> => {
+    try {
+      // Primeira tentativa: UTF-8
+      let content = await RNFS.readFile(fileUri, 'utf8');
+      // Remove BOM (Byte Order Mark) se presente
+      content = content.replace(/^\uFEFF/, '');
+      // Remove caracteres de controle inválidos (exceto quebras de linha e tabs)
+      content = content.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+      return content;
+    } catch (utf8Error: any) {
+      // Se falhar com UTF-8, tenta ler como base64 e converter
+      const errorMessage = utf8Error?.message || '';
+      if (
+        errorMessage.includes('UTF-8') ||
+        errorMessage.includes('utf') ||
+        errorMessage.includes('encoding') ||
+        errorMessage.includes('codificação')
+      ) {
+        try {
+          // Lê como base64
+          const base64Content = await RNFS.readFile(fileUri, 'base64');
+          // Converte base64 para string
+          let decodedContent: string;
+          
+          // Tenta usar Buffer se disponível (React Native pode ter polyfill)
+          if (typeof Buffer !== 'undefined') {
+            decodedContent = Buffer.from(base64Content, 'base64').toString('utf8');
+          } else {
+            // Fallback: converte base64 para bytes e usa TextDecoder
+            try {
+              // Decodifica base64 para bytes
+              const binaryString = atob(base64Content);
+              // Converte para array de bytes
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              
+              // Converte bytes para string UTF-8 usando TextDecoder
+              // TextDecoder está disponível no React Native 0.60+
+              if (typeof TextDecoder !== 'undefined') {
+                const decoder = new TextDecoder('utf-8', {fatal: false});
+                decodedContent = decoder.decode(bytes);
+              } else {
+                // Fallback muito simples: tenta usar a string binária diretamente
+                // Isso pode não funcionar perfeitamente, mas é melhor que nada
+                decodedContent = binaryString;
+              }
+            } catch (decodeError) {
+              console.error('Erro ao decodificar base64:', decodeError);
+              // Se tudo falhar, tenta ler como ASCII
+              throw decodeError;
+            }
+          }
+          
+          // Remove BOM se presente e caracteres inválidos
+          decodedContent = decodedContent.replace(/^\uFEFF/, '');
+          decodedContent = decodedContent.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+          return decodedContent;
+        } catch (base64Error) {
+          console.error('Erro ao ler como base64:', base64Error);
+          // Última tentativa: tenta ler como ASCII (pode perder alguns caracteres)
+          try {
+            let asciiContent = await RNFS.readFile(fileUri, 'ascii');
+            asciiContent = asciiContent.replace(/^\uFEFF/, '');
+            asciiContent = asciiContent.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+            return asciiContent;
+          } catch (asciiError) {
+            throw new Error(
+              'Não foi possível ler o arquivo. O arquivo pode estar corrompido ou em uma codificação não suportada. Tente salvar o arquivo como UTF-8.',
+            );
+          }
+        }
+      }
+      throw utf8Error;
+    }
+  };
+
   const handlePickFile = async () => {
     try {
       setIsLoading(true);
@@ -41,18 +121,99 @@ export const ImportSvgModal: React.FC<ImportSvgModalProps> = ({
 
       if (result.length > 0) {
         const file = result[0];
-        const content = await RNFS.readFile(file.fileCopyUri || file.uri, 'utf8');
-        setSvg(content);
-        if (!name && file.name) {
-          const baseName = file.name.replace(/\.svg$/i, '');
-          setName(baseName);
+        let content: string;
+        
+        // Prioriza fileCopyUri quando disponível (arquivo copiado para cache)
+        if (file.fileCopyUri) {
+          try {
+            // Remove prefixo file:// se existir
+            const cleanUri = file.fileCopyUri.replace(/^file:\/\//, '');
+            // Verifica se o arquivo existe
+            const exists = await RNFS.exists(cleanUri);
+            if (exists) {
+              content = await readFileWithEncoding(cleanUri);
+            } else {
+              throw new Error('Arquivo copiado não encontrado no cache.');
+            }
+          } catch (readError) {
+            console.error('Erro ao ler fileCopyUri:', readError);
+            // Se falhar com fileCopyUri, tenta com uri original
+            throw readError;
+          }
+        } else if (file.uri) {
+          // Se não tiver fileCopyUri, tenta ler da URI original
+          try {
+            // No Android, pode ser content:// que RNFS não suporta bem
+            // Tenta remover file:// se existir
+            let cleanUri = file.uri;
+            if (cleanUri.startsWith('file://')) {
+              cleanUri = cleanUri.replace(/^file:\/\//, '');
+              content = await readFileWithEncoding(cleanUri);
+            } else if (Platform.OS === 'android' && cleanUri.startsWith('content://')) {
+              // Para content:// no Android, tenta usar RNFS diretamente
+              // Se falhar, pode ser necessário usar outra abordagem
+              try {
+                content = await readFileWithEncoding(cleanUri);
+              } catch {
+                // Se RNFS não conseguir ler content://, tenta sem copyTo na próxima vez
+                throw new Error(
+                  'Não foi possível acessar o arquivo. Tente selecionar o arquivo novamente.',
+                );
+              }
+            } else {
+              content = await readFileWithEncoding(cleanUri);
+            }
+          } catch (readError) {
+            console.error('Erro ao ler uri original:', readError);
+            throw new Error(
+              'Não foi possível ler o arquivo selecionado. Verifique se o arquivo é válido.',
+            );
+          }
+        } else {
+          throw new Error('URI do arquivo não disponível.');
+        }
+        
+        if (!content || content.trim().length === 0) {
+          throw new Error('O arquivo selecionado está vazio.');
+        }
+        
+        // Quando importa via arquivo, processa e adiciona automaticamente
+        try {
+          const fileName = file.name
+            ? file.name.replace(/\.svg$/i, '')
+            : 'Arte personalizada';
+          const page = convertSvgToColoringPage(content, {
+            name: fileName,
+          });
+          onSubmit(page);
+          setName('');
+          setSvg('');
+          setError(null);
+          onClose();
+        } catch (convertError) {
+          // Se a conversão falhar, mostra o erro mas mantém o código para edição manual
+          const errorMessage =
+            convertError instanceof Error
+              ? convertError.message
+              : 'Não foi possível interpretar o SVG. Você pode editar o código manualmente.';
+          setError(errorMessage);
+          setSvg(content);
+          if (!name && file.name) {
+            const baseName = file.name.replace(/\.svg$/i, '');
+            setName(baseName);
+          }
         }
       }
     } catch (err) {
       if (DocumentPicker.isCancel(err)) {
         return;
       }
-      setError('Não foi possível ler o arquivo selecionado.');
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível ler o arquivo selecionado.';
+      setError(errorMessage);
+      console.error('Erro ao importar SVG:', err);
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +246,7 @@ export const ImportSvgModal: React.FC<ImportSvgModalProps> = ({
         <View style={styles.container}>
           <Text style={styles.title}>Importar SVG personalizado</Text>
           <Text style={styles.subtitle}>
-            Selecione um arquivo SVG ou cole o conteúdo manualmente.
+            Selecione um arquivo SVG para importar automaticamente ou cole o conteúdo manualmente.
           </Text>
 
           <Pressable
@@ -112,7 +273,7 @@ export const ImportSvgModal: React.FC<ImportSvgModalProps> = ({
           />
 
           <TextInput
-            placeholder="<svg ...></svg>"
+            placeholder="Cole o código SVG aqui (ou selecione um arquivo acima)"
             placeholderTextColor={colors.textMuted}
             value={svg}
             onChangeText={setSvg}
@@ -177,7 +338,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   textarea: {
-    minHeight: 160,
+    minHeight: 120,
+    maxHeight: 200,
   },
   error: {
     color: colors.danger,
@@ -246,5 +408,6 @@ const styles = StyleSheet.create({
     fontSize: typography.caption,
   },
 });
+
 
 
